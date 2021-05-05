@@ -63,17 +63,22 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
         # Reorder joints to match visualization utilities (joint_mapper)
         joints_rh_gen_rnet = output.joints[:, [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]]
         transforms_rh_gen_rnet = output.transforms[:, [0, 13, 14, 15, 1, 2, 3, 4, 5, 6, 10, 11, 12, 7, 8, 9]]
+        joints_rh_gen_rnet = to_cpu(joints_rh_gen_rnet)
+        transforms_rh_gen_rnet = to_cpu(transforms_rh_gen_rnet)
 
         gen_meshes = []
         for cId in range(0, len(dorig['bps_object'])):
             try:
                 obj_mesh = dorig['mesh_object'][cId]
             except:
-                obj_mesh = points2sphere(points=to_cpu(dorig['verts_object'][cId]), radius=0.002, vc=name_to_rgb['yellow'])
+                obj_mesh = points2sphere(points=to_cpu(dorig['verts_object'][cId]), radius=0.002, vc=[145, 191, 219])
 
             hand_mesh_gen_rnet = Mesh(vertices=to_cpu(verts_rh_gen_rnet[cId]), faces=rh_model.faces, vc=[145, 191, 219])
+            hand_joint_gen_rnet = joints_rh_gen_rnet[cId]
+            hand_transform_gen_rnet = transforms_rh_gen_rnet[cId]
 
             if 'rotmat' in dorig:
+                # default without rotation
                 rotmat = dorig['rotmat'][cId].T
                 obj_mesh = obj_mesh.rotate_vertices(rotmat)
                 hand_mesh_gen_rnet.rotate_vertices(rotmat)
@@ -82,10 +87,10 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
             if save:
                 save_path = os.path.join(save_dir, str(cId))
                 makepath(save_path)
-                hand_mesh_gen_rnet.export(filename=save_path + '/rh_mesh_gen_%d.ply' % cId)
-                obj_mesh.export(filename=save_path + '/obj_mesh_%d.ply' % cId)
-                np.save(to_cpu(joints_rh_gen_rnet), filename=save_path + '/rh_joints_gen_%d.ply' % cId)
-                np.save(to_cpu(transforms_rh_gen_rnet), filename=save_path + '/rh_trans_gen_%d.ply' % cId)
+                hand_mesh_gen_rnet.export(filename=save_path + '/mesh_%d.ply' % cId)
+                # obj_mesh.export(filename=save_path + '/obj_mesh_%d.ply' % cId)
+                np.save(hand_joint_gen_rnet, filename=save_path + '/joints_%d.ply' % cId)
+                np.save(hand_transform_gen_rnet, filename=save_path + '/trans_%d.ply' % cId)
 
         return gen_meshes
 
@@ -112,7 +117,7 @@ def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
         objs_path = [objs_path]
 
     for new_obj in objs_path:
-
+        obj_name = new_obj.split("/")[-1].split(".")[0]
         # rand_rotdeg = np.random.random([n_samples, 3]) * np.array([360, 360, 360])
         rand_rotdeg = np.zeros([n_samples, 3])
 
@@ -138,7 +143,7 @@ def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
         dorig['bps_object'] = torch.cat(dorig['bps_object'])
         dorig['verts_object'] = torch.cat(dorig['verts_object'])
 
-        save_dir = os.path.join(grabnet.cfg.work_dir, 'grab_new_objects')
+        save_dir = os.path.join(grabnet.cfg.work_dir, obj_name)
         grabnet.logger(f'#################\n'
                        f'                   \n'
                        f'Saving results for the {obj_name.upper()}'
@@ -149,8 +154,7 @@ def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
                                 refine_net=grabnet.refine_net,
                                 rh_model=rh_model,
                                 save=False,
-                                save_dir=save_dir
-                                )
+                                save_dir=save_dir)
 
         torch.save(gen_meshes, 'data/grabnet_data/meshes.pt')
 
@@ -206,7 +210,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale', default=1., type=float,
                         help='The scaling for the 3D object')
         
-    parser.add_argument('--n-samples', default=5, type=int,
+    parser.add_argument('--n-samples', default=10, type=int,
                         help='number of grasps to generate')
 
     args = parser.parse_args()
