@@ -60,9 +60,9 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
         print("hand shape {} should be idtenty".format(output.betas))
         verts_rh_gen_rnet = output.vertices
 
-        # Reorder joints to match visualization utilities (joint_mapper)
-        joints_rh_gen_rnet = output.joints[:, [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]]
-        transforms_rh_gen_rnet = output.transforms[:, [0, 13, 14, 15, 1, 2, 3, 4, 5, 6, 10, 11, 12, 7, 8, 9]]
+        # Reorder joints to match visualization utilities (joint_mapper) (TODO)
+        joints_rh_gen_rnet = output.joints # [:, [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]]
+        transforms_rh_gen_rnet = output.transforms # [:, [0, 13, 14, 15, 1, 2, 3, 4, 5, 6, 10, 11, 12, 7, 8, 9]]
         joints_rh_gen_rnet = to_cpu(joints_rh_gen_rnet)
         transforms_rh_gen_rnet = to_cpu(transforms_rh_gen_rnet)
 
@@ -153,7 +153,7 @@ def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
                                 coarse_net=grabnet.coarse_net,
                                 refine_net=grabnet.refine_net,
                                 rh_model=rh_model,
-                                save=False,
+                                save=True,
                                 save_dir=save_dir)
 
         torch.save(gen_meshes, 'data/grabnet_data/meshes.pt')
