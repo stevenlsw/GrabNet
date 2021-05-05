@@ -44,7 +44,8 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         drec_cnet = coarse_net.sample_poses(dorig['bps_object'])
-        verts_rh_gen_cnet = rh_model(**drec_cnet).vertices
+        output = rh_model(**drec_cnet)
+        verts_rh_gen_cnet = output.vertices
 
         _, h2o, _ = point2point_signed(verts_rh_gen_cnet, dorig['verts_object'].to(device))
 
@@ -55,7 +56,9 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
         drec_cnet['h2o_dist'] = h2o.abs()
 
         drec_rnet = refine_net(**drec_cnet)
-        verts_rh_gen_rnet = rh_model(**drec_rnet).vertices
+        output = rh_model(**drec_rnet)
+        print("hand shape {} should be idtenty".format(output.betas))
+        verts_rh_gen_rnet = output.vertices
 
         gen_meshes = []
         for cId in range(0, len(dorig['bps_object'])):
@@ -64,7 +67,7 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
             except:
                 obj_mesh = points2sphere(points=to_cpu(dorig['verts_object'][cId]), radius=0.002, vc=name_to_rgb['yellow'])
 
-            hand_mesh_gen_rnet = Mesh(vertices=to_cpu(verts_rh_gen_rnet[cId]), faces=rh_model.faces, vc=[245, 191, 177])
+            hand_mesh_gen_rnet = Mesh(vertices=to_cpu(verts_rh_gen_rnet[cId]), faces=rh_model.faces, vc=[145, 191, 219])
 
             if 'rotmat' in dorig:
                 rotmat = dorig['rotmat'][cId].T
@@ -77,6 +80,7 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
                 makepath(save_path)
                 hand_mesh_gen_rnet.export(filename=save_path + '/rh_mesh_gen_%d.ply' % cId)
                 obj_mesh.export(filename=save_path + '/obj_mesh_%d.ply' % cId)
+
 
         return gen_meshes
 
@@ -104,9 +108,12 @@ def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
 
     for new_obj in objs_path:
 
-        rand_rotdeg = np.random.random([n_samples, 3]) * np.array([360, 360, 360])
+        # rand_rotdeg = np.random.random([n_samples, 3]) * np.array([360, 360, 360])
+        rand_rotdeg = np.zeros([n_samples, 3])
 
         rand_rotmat = euler(rand_rotdeg)
+        print("random rotation matrix set to identity {}".format(rand_rotmat))
+
         dorig = {'bps_object': [],
                  'verts_object': [],
                  'mesh_object': [],
@@ -194,7 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale', default=1., type=float,
                         help='The scaling for the 3D object')
         
-    parser.add_argument('--n-samples', default=10, type=int,
+    parser.add_argument('--n-samples', default=5, type=int,
                         help='number of grasps to generate')
 
     args = parser.parse_args()
