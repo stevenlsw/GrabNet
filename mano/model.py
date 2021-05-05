@@ -204,7 +204,6 @@ class MANO(nn.Module):
                 default_transl = torch.tensor(transl, dtype=dtype)
             self.register_parameter('transl', nn.Parameter(default_transl, requires_grad=True))
 
-
         if v_template is None:
             v_template = data_struct.v_template
         if not torch.is_tensor(v_template):
@@ -346,10 +345,6 @@ class MANO(nn.Module):
                 joints = joints + transl.unsqueeze(dim=1)
                 vertices = vertices + transl.unsqueeze(dim=1)
                 transforms[:, :, :3, 3] = transforms[:, :, :3, 3] + transl.unsqueeze(dim=1)
-
-            # Reorder joints to match visualization utilities (joint_mapper)
-            joints = joints[:, [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]]
-            transforms = transforms[:, [0, 13, 14, 15, 1, 2, 3, 4, 5, 6, 10, 11, 12, 7, 8, 9]]
 
         output = ModelOutput(vertices=vertices if return_verts else None,
                              joints=joints if return_verts else None,

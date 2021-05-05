@@ -60,6 +60,10 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
         print("hand shape {} should be idtenty".format(output.betas))
         verts_rh_gen_rnet = output.vertices
 
+        # Reorder joints to match visualization utilities (joint_mapper)
+        joints_rh_gen_rnet = output.joints[:, [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]]
+        transforms_rh_gen_rnet = output.transforms[:, [0, 13, 14, 15, 1, 2, 3, 4, 5, 6, 10, 11, 12, 7, 8, 9]]
+
         gen_meshes = []
         for cId in range(0, len(dorig['bps_object'])):
             try:
@@ -80,7 +84,8 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
                 makepath(save_path)
                 hand_mesh_gen_rnet.export(filename=save_path + '/rh_mesh_gen_%d.ply' % cId)
                 obj_mesh.export(filename=save_path + '/obj_mesh_%d.ply' % cId)
-
+                np.save(to_cpu(joints_rh_gen_rnet), filename=save_path + '/rh_joints_gen_%d.ply' % cId)
+                np.save(to_cpu(transforms_rh_gen_rnet), filename=save_path + '/rh_trans_gen_%d.ply' % cId)
 
         return gen_meshes
 
