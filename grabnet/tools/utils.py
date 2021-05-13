@@ -101,7 +101,7 @@ def euler(rots, order='xyz', units='deg'):
         if units == 'deg':
             xyz = np.radians(xyz)
         r = np.eye(3)
-        for theta, axis in zip(xyz,order):
+        for theta, axis in zip(xyz, order):
             c = np.cos(theta)
             s = np.sin(theta)
             if axis=='x':

@@ -1,0 +1,5 @@
+.idea/
+grasping/
+.DS_Store 
+*/*.zip
+visualize*

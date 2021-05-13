@@ -8,6 +8,7 @@ tqdm
 Ninja
 trimesh
 pyrender
+transforms3d
 PyYAML
 git+git://github.com/otaheri/chamfer_distance.git
 git+git://github.com/otaheri/bps_torch.git

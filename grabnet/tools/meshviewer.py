@@ -23,6 +23,7 @@ from pyrender.light import DirectionalLight
 from pyrender.node import Node
 from PIL import Image
 
+
 class Mesh(trimesh.Trimesh):
 
     def __init__(self,

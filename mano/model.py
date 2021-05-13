@@ -308,7 +308,7 @@ class MANO(nn.Module):
         return joints
 
     def forward(self, betas=None, global_orient=None, hand_pose=None, transl=None,
-                return_verts=True, return_tips = False, return_full_pose=False, pose2rot=True,
+                return_verts=True, return_tips=True, return_full_pose=False, pose2rot=True,
                 **kwargs):
         '''
         '''

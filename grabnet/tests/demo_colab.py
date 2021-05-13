@@ -18,9 +18,9 @@ import numpy as np
 import torch
 import os, time
 import argparse
+import transforms3d
 
 import mano
-
 from grabnet.tools.utils import euler
 from grabnet.tools.cfg_parser import Config
 from grabnet.tests.tester import Tester
@@ -78,24 +78,24 @@ def get_meshes(dorig, coarse_net, refine_net, rh_model, save=False, save_dir=Non
             hand_transform_gen_rnet = transforms_rh_gen_rnet[cId]
 
             if 'rotmat' in dorig:
-                # default without rotation
                 rotmat = dorig['rotmat'][cId].T
                 obj_mesh = obj_mesh.rotate_vertices(rotmat)
                 hand_mesh_gen_rnet.rotate_vertices(rotmat)
 
+                hand_joint_gen_rnet = hand_joint_gen_rnet @ rotmat.T
+                hand_transform_gen_rnet[:, :, :3, :3] = np.matmul(rotmat[None, ...], hand_transform_gen_rnet[:, :, :3, :3])
+
             gen_meshes.append([obj_mesh, hand_mesh_gen_rnet])
             if save:
-                save_path = os.path.join(save_dir, str(cId))
-                makepath(save_path)
-                hand_mesh_gen_rnet.export(filename=save_path + '/mesh_%d.ply' % cId)
-                # obj_mesh.export(filename=save_path + '/obj_mesh_%d.ply' % cId)
-                np.save(hand_joint_gen_rnet, filename=save_path + '/joints_%d.ply' % cId)
-                np.save(hand_transform_gen_rnet, filename=save_path + '/trans_%d.ply' % cId)
+                makepath(save_dir)
+                print("saving dir {}".format(save_dir))
+                np.save(save_dir + '/joints_%d.npy' % cId, hand_joint_gen_rnet)
+                np.save(save_dir + '/trans_%d.npy' % cId, hand_transform_gen_rnet)
 
         return gen_meshes
 
 
-def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
+def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1., pre_rotmat=None):
     grabnet.coarse_net.eval()
     grabnet.refine_net.eval()
 
@@ -119,10 +119,11 @@ def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
     for new_obj in objs_path:
         obj_name = new_obj.split("/")[-1].split(".")[0]
         # rand_rotdeg = np.random.random([n_samples, 3]) * np.array([360, 360, 360])
-        rand_rotdeg = np.zeros([n_samples, 3])
-
-        rand_rotmat = euler(rand_rotdeg)
-        print("random rotation matrix set to identity {}".format(rand_rotmat))
+        if pre_rotmat is None:
+            rand_rotdeg = np.zeros([n_samples, 3])
+            rand_rotmat = euler(rand_rotdeg)
+            pre_rotmat = rand_rotmat
+            print("random rotation matrix set to identity {}".format(rand_rotmat))
 
         dorig = {'bps_object': [],
                  'verts_object': [],
@@ -130,7 +131,7 @@ def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
                  'rotmat': []}
 
         for samples in range(n_samples):
-            verts_obj, mesh_obj, rotmat = load_obj_verts(new_obj, rand_rotmat[samples], rndrotate=rot, scale=scale)
+            verts_obj, mesh_obj, rotmat = load_obj_verts(new_obj, pre_rotmat[samples], rndrotate=rot, scale=scale)
 
             bps_object = bps.encode(verts_obj, feature_type='dists')['dists']
 
@@ -159,7 +160,7 @@ def grab_new_objs(grabnet, objs_path, rot=True, n_samples=10, scale=1.):
         torch.save(gen_meshes, 'data/grabnet_data/meshes.pt')
 
 
-def load_obj_verts(mesh_path, rand_rotmat, rndrotate=True, scale=1., n_sample_verts=10000):
+def load_obj_verts(mesh_path, pre_rotmat, rndrotate=True, scale=1., n_sample_verts=10000):
     np.random.seed(100)
     obj_mesh = Mesh(filename=mesh_path, vscale=scale)
 
@@ -181,9 +182,9 @@ def load_obj_verts(mesh_path, rand_rotmat, rndrotate=True, scale=1., n_sample_ve
     obj_mesh.vertices[:] = verts_obj
 
     if rndrotate:
-        obj_mesh.rotate_vertices(rand_rotmat)
+        obj_mesh.rotate_vertices(pre_rotmat)
     else:
-        rand_rotmat = np.eye(3)
+        pre_rotmat = np.eye(3)
 
     while (obj_mesh.vertices.shape[0]<n_sample_verts):
         new_mesh = obj_mesh.subdivide()
@@ -195,7 +196,7 @@ def load_obj_verts(mesh_path, rand_rotmat, rndrotate=True, scale=1., n_sample_ve
     verts_sample_id = np.random.choice(verts_obj.shape[0], n_sample_verts, replace=False)
     verts_sampled = verts_obj[verts_sample_id]
 
-    return verts_sampled, obj_mesh, rand_rotmat
+    return verts_sampled, obj_mesh, pre_rotmat
 
 
 if __name__ == '__main__':
@@ -220,7 +221,6 @@ if __name__ == '__main__':
     scale = args.scale
     n_samples = args.n_samples
 
-
     cwd = os.getcwd()
     work_dir = cwd + '/logs'
 
@@ -237,7 +237,18 @@ if __name__ == '__main__':
 
     }
 
+    YCB_ORIENTATION = {
+        "004_sugar_box": (1, 0, 0, 0),
+        "005_tomato_soup_can": (1, 0, 0, 0),
+        "006_mustard_bottle": (0.5, 0, 0, 0.866),
+        "025_mug": (0.707, 0, 0, 0.707),
+        "051_large_clamp": (0, 0, 0, 1),
+    }
+
     cfg = Config(**config)
 
     grabnet = Tester(cfg=cfg)
-    grab_new_objs(grabnet, obj_path, rot=True, n_samples=n_samples, scale=scale)
+
+    pre_rotmat = [transforms3d.quaternions.quat2mat(YCB_ORIENTATION[obj_path.split(".")[0]])] * n_samples
+
+    grab_new_objs(grabnet, obj_path, rot=True, n_samples=n_samples, scale=scale, pre_rotmat=pre_rotmat)
